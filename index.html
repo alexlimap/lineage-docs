@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Documentação de Lineage - Base de Dados</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --grad-1: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      --grad-2: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+      --grad-3: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+      --grad-4: linear-gradient(135deg, #30cfd0 0%, #330867 100%);
+      --text-1: #212529; --text-2: #495057; --muted: #6c757d; --bg-1: #f8f9fa;
+      --primary: #667eea; --primary-2: #764ba2; --shadow: rgba(0, 0, 0, 0.3);
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: var(--grad-1);
+      min-height: 100vh; padding: 20px; color: var(--text-1);
+    }
+    .container {
+      max-width: 1400px; margin: 0 auto; background: rgba(255,255,255,.95);
+      border-radius: 20px; box-shadow: 0 20px 60px var(--shadow); overflow: hidden;
+    }
+    header { background: var(--grad-1); color: white; padding: 40px; text-align: center; }
+    h1 { font-size: 2.5rem; margin-bottom: 10px; animation: fadeInDown .8s ease; }
+    .subtitle { font-size: 1.1rem; opacity: .9; animation: fadeInUp .8s ease; }
+    nav { background: #f8f9fa; padding: 20px 40px; border-bottom: 2px solid #e9ecef; display: flex; gap: 10px; flex-wrap: wrap; }
+    .nav-btn { padding: 10px 16px; background: white; border: 2px solid var(--primary); color: var(--primary); border-radius: 999px; cursor: pointer; transition: all .25s ease; font-weight: 700; font-size: .95rem; }
+    .nav-btn:hover, .nav-btn.active { background: var(--primary); color: white; transform: translateY(-2px); box-shadow: 0 5px 15px rgba(102,126,234,.4); }
+    .content { padding: 32px 40px 40px; }
+    .section { display: none; animation: fadeIn .4s ease; }
+    .section.active { display: block; }
+    .overview-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-top: 24px; }
+    .stat-card { background: var(--grad-1); color: white; padding: 28px; border-radius: 16px; text-align: center; transform: translateY(0); transition: transform .25s ease; }
+    .stat-card:hover { transform: translateY(-5px); box-shadow: 0 10px 30px rgba(0,0,0,.2); }
+    .stat-number { font-size: 2.6rem; font-weight: 800; margin-bottom: 8px; letter-spacing: .5px; }
+    .stat-label { font-size: 1rem; opacity: .95; }
+    .lineage-container { margin-top: 24px; overflow-x: auto; }
+    .lineage-flow { display: flex; align-items: center; gap: 28px; padding: 24px; min-width: fit-content; }
+    .source-group { display: flex; flex-direction: column; gap: 14px; }
+    .source-box, .transform-box, .target-box { padding: 18px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,.08); transition: all .25s ease; cursor: pointer; position: relative; min-width: 220px; }
+    .source-box { background: var(--grad-2); color: white; }
+    .transform-box { background: var(--grad-3); color: white; min-width: 260px; }
+    .target-box { background: var(--grad-4); color: white; }
+    .source-box:hover, .transform-box:hover, .target-box:hover { transform: scale(1.04); box-shadow: 0 8px 25px rgba(0,0,0,.18); }
+    .arrow { font-size: 2rem; color: var(--primary); animation: pulse 2s infinite; user-select: none; }
+    .table-actions { display: flex; gap: 10px; flex-wrap: wrap; margin: 16px 0 8px; }
+    .btn { border: 2px solid var(--primary); background: white; color: var(--primary); border-radius: 10px; padding: 10px 14px; font-weight: 700; cursor: pointer; transition: .2s; }
+    .btn:hover { background: var(--primary); color: #fff; }
+    .table-container { margin-top: 16px; overflow-x: auto; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,.08); }
+    table { width: 100%; border-collapse: collapse; background: white; }
+    th { background: var(--grad-1); color: white; padding: 14px; text-align: left; font-weight: 700; position: sticky; top: 0; }
+    td { padding: 14px; border-bottom: 1px solid #e9ecef; }
+    tr:hover { background: #f8f9fa; }
+    .badge { display: inline-block; padding: 5px 10px; border-radius: 999px; font-size: .85rem; font-weight: 800; letter-spacing: .2px; }
+    .badge-source { background: #4facfe; color: white; }
+    .badge-transform { background: #fa709a; color: white; }
+    .badge-quality { background: #30cfd0; color: white; }
+    .quality-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-top: 20px; }
+    .metric-card { background: white; padding: 18px; border-radius: 10px; border-left: 4px solid var(--primary); box-shadow: 0 2px 10px rgba(0,0,0,.06); }
+    .metric-value { font-size: 2rem; font-weight: 800; color: var(--primary); }
+    .metric-label { color: var(--muted); margin-top: 4px; }
+    .progress-bar { width: 100%; height: 10px; background: #e9ecef; border-radius: 5px; overflow: hidden; margin-top: 10px; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, #667eea, #764ba2); border-radius: 5px; transition: width 1s ease; }
+    .search-box { margin: 16px 0; position: relative; }
+    .search-input { width: 100%; padding: 14px 16px; border: 2px solid #e9ecef; border-radius: 30px; font-size: 1rem; transition: border-color .2s ease; }
+    .search-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(102,126,234,.15); }
+    .timeline { margin-top: 24px; position: relative; padding: 20px 0; }
+    .timeline::before { content: ''; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; background: var(--primary); }
+    .timeline-item { position: relative; margin: 20px 0; display: flex; align-items: center; }
+    .timeline-item:nth-child(odd) { flex-direction: row-reverse; }
+    .timeline-content { background: white; padding: 18px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,.08); width: 45%; position: relative; }
+    .timeline-dot { position: absolute; left: 50%; transform: translateX(-50%); width: 18px; height: 18px; background: var(--primary); border-radius: 50%; border: 4px solid white; box-shadow: 0 2px 10px rgba(0,0,0,.08); }
+    .modal { display: none; position: fixed; z-index: 1000; inset: 0; background: rgba(0,0,0,.5); animation: fadeIn .25s ease; }
+    .modal-content { background: white; margin: 5% auto; padding: 28px; border-radius: 14px; max-width: 900px; animation: slideDown .25s ease; max-height: 80vh; overflow-y: auto; }
+    .close { color: #888; float: right; font-size: 28px; font-weight: 800; cursor: pointer; transition: color .2s ease; }
+    .close:hover { color: #000; }
+    @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+    @keyframes fadeInDown { from{opacity:0; transform: translateY(-20px)} to{opacity:1; transform: translateY(0)} }
+    @keyframes fadeInUp { from{opacity:0; transform: translateY(20px)} to{opacity:1; transform: translateY(0)} }
+    @keyframes slideDown { from{transform: translateY(-50px); opacity:0} to{transform: translateY(0); opacity:1} }
+    @keyframes pulse { 0%,100%{ transform: scale(1) } 50%{ transform: scale(1.1) } }
+    @media (max-width: 768px) {
+      .lineage-flow { flex-direction: column; }
+      .arrow { transform: rotate(90deg); }
+      .timeline::before { left: 20px; }
+      .timeline-item { flex-direction: row !important; }
+      .timeline-content { width: calc(100% - 50px); margin-left: 50px; }
+      .timeline-dot { left: 20px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>📊 Documentação de Lineage de Dados</h1>
+      <p class="subtitle">Sistema de Rastreabilidade e Transformação de Dados</p>
+    </header>
+
+    <nav aria-label="Seções do documento">
+      <button class="nav-btn active" data-target="overview">Visão Geral</button>
+      <button class="nav-btn" data-target="lineage">Lineage</button>
+      <button class="nav-btn" data-target="dictionary">Dicionário</button>
+      <button class="nav-btn" data-target="transformations">Transformações</button>
+      <button class="nav-btn" data-target="quality">Qualidade</button>
+      <button class="nav-btn" data-target="timeline">Timeline</button>
+    </nav>
+
+    <div class="content">
+      <!-- Visão Geral -->
+      <section id="overview" class="section active" aria-labelledby="h-overview">
+        <h2 id="h-overview">📈 Visão Geral do Pipeline</h2>
+        <div class="overview-grid" role="list">
+          <article class="stat-card" role="listitem" aria-label="Bases de Origem">
+            <div class="stat-number" id="kpi-origens">5</div>
+            <div class="stat-label">Bases de Origem</div>
+          </article>
+          <article class="stat-card" role="listitem" aria-label="Variáveis Processadas">
+            <div class="stat-number" id="kpi-variaveis">127</div>
+            <div class="stat-label">Variáveis Processadas</div>
+          </article>
+          <article class="stat-card" role="listitem" aria-label="Transformações">
+            <div class="stat-number" id="kpi-transfos">12</div>
+            <div class="stat-label">Transformações</div>
+          </article>
+          <article class="stat-card" role="listitem" aria-label="Qualidade de Dados">
+            <div class="stat-number" id="kpi-qualidade">98.7%</div>
+            <div class="stat-label">Qualidade de Dados</div>
+          </article>
+        </div>
+        <h3 style="margin-top: 28px;">📝 Descrição do Projeto</h3>
+        <p style="line-height: 1.8; color: var(--text-2); margin-top: 10px;">
+          Este pipeline integra dados de 5 fontes diferentes para criar uma base analítica unificada. O processo inclui validação de qualidade, transformações complexas e rastreabilidade completa de cada variável desde sua origem até a tabela final.
+        </p>
+        <h3 style="margin-top: 22px;">🎯 Objetivo</h3>
+        <p style="line-height: 1.8; color: var(--text-2); margin-top: 10px;">
+          Consolidar informações de clientes, transações, produtos, campanhas e logs de sistema em uma única base otimizada para análises avançadas e tomada de decisão.
+        </p>
+      </section>
+
+      <!-- Lineage -->
+      <section id="lineage" class="section" aria-labelledby="h-lineage">
+        <h2 id="h-lineage">🔄 Lineage de Dados</h2>
+        <p style="color: var(--muted); margin-top: 8px;">Clique em cada elemento para ver detalhes</p>
+        <div class="lineage-container">
+          <div class="lineage-flow">
+            <div class="source-group">
+              <div class="source-box" role="button" tabindex="0" data-detail="source1">
+                <h4>📁 Base Clientes</h4>
+                <p>PostgreSQL</p>
+                <small>15 variáveis</small>
+              </div>
+              <div class="source-box" role="button" tabindex="0" data-detail="source2">
+                <h4>📁 Base Transações</h4>
+                <p>MySQL</p>
+                <small>28 variáveis</small>
+              </div>
+              <div class="source-box" role="button" tabindex="0" data-detail="source3">
+                <h4>📁 Base Produtos</h4>
+                <p>API REST</p>
+                <small>22 variáveis</small>
+              </div>
+              <div class="source-box" role="button" tabindex="0" data-detail="source4">
+                <h4>📁 Base Campanhas</h4>
+                <p>CSV Files</p>
+                <small>18 variáveis</small>
+              </div>
+              <div class="source-box" role="button" tabindex="0" data-detail="source5">
+                <h4>📁 Logs Sistema</h4>
+                <p>MongoDB</p>
+                <small>44 variáveis</small>
+              </div>
+            </div>
+            <div class="arrow" aria-hidden>→</div>
+            <div class="transform-box" role="button" tabindex="0" data-detail="transform">
+              <h4>⚙️ Camada de Transformação</h4>
+              <p>Apache Spark</p>
+              <small>12 processos ETL</small>
+              <div class="progress-bar" aria-label="Progresso ETL" aria-valuemin="0" aria-valuemax="100" aria-valuenow="85" role="progressbar">
+                <div class="progress-fill" style="width:85%"></div>
+              </div>
+            </div>
+            <div class="arrow" aria-hidden>→</div>
+            <div class="target-box" role="button" tabindex="0" data-detail="target">
+              <h4>🎯 Tabela Final</h4>
+              <p>DW_ANALYTICS</p>
+              <small>87 variáveis finais</small>
+            </div>
+          </div>
+        </div>
+        <h3 style="margin-top: 24px;">📊 Mapeamento Detalhado</h3>
+        <div class="search-box">
+          <input id="search" class="search-input" placeholder="🔍 Buscar variável, origem, regra..." />
+        </div>
+        <div class="table-actions">
+          <button class="btn" id="btn-export-csv">Exportar CSV</button>
+          <button class="btn" id="btn-export-json">Exportar JSON</button>
+          <button class="btn" id="btn-print">Imprimir / PDF</button>
+          <button class="btn" id="btn-reset">Limpar Filtro</button>
+        </div>
+        <div class="table-container">
+          <table id="lineageTable">
+            <thead>
+              <tr>
+                <th>Variável Final</th>
+                <th>Tipo</th>
+                <th>Origem</th>
+                <th>Variável Original</th>
+                <th>Transformação</th>
+                <th>Regra de Negócio</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>customer_id</strong></td>
+                <td>INTEGER</td>
+                <td><span class="badge badge-source">Base Clientes</span></td>
+                <td>id_cliente</td>
+                <td><span class="badge badge-transform">CAST</span></td>
+                <td>Chave primária unificada</td>
+              </tr>
+              <tr>
+                <td><strong>customer_name</strong></td>
+                <td>VARCHAR(100)</td>
+                <td><span class="badge badge-source">Base Clientes</span></td>
+                <td>nome_completo</td>
+                <td><span class="badge badge-transform">UPPER + TRIM</span></td>
+                <td>Padronização em maiúsculas</td>
+              </tr>
+              <tr>
+                <td><strong>total_revenue</strong></td>
+                <td>DECIMAL(15,2)</td>
+                <td><span class="badge badge-source">Base Transações</span></td>
+                <td>valor_transacao</td>
+                <td><span class="badge badge-transform">SUM + GROUP BY</span></td>
+                <td>Soma de todas as transações por cliente</td>
+              </tr>
+              <tr>
+                <td><strong>product_category</strong></td>
+                <td>VARCHAR(50)</td>
+                <td><span class="badge badge-source">Base Produtos</span></td>
+                <td>categoria_produto</td>
+                <td><span class="badge badge-transform">COALESCE</span></td>
+                <td>Categoria principal ou 'Outros'</td>
+              </tr>
+              <tr>
+                <td><strong>campaign_score</strong></td>
+                <td>FLOAT</td>
+                <td><span class="badge badge-source">Base Campanhas</span></td>
+                <td>engagement_rate</td>
+                <td><span class="badge badge-transform">CALCULATE</span></td>
+                <td>(clicks/impressions) * 100</td>
+              </tr>
+              <tr>
+                <td><strong>last_activity</strong></td>
+                <td>TIMESTAMP</td>
+                <td><span class="badge badge-source">Logs Sistema</span></td>
+                <td>timestamp_acao</td>
+                <td><span class="badge badge-transform">MAX</span></td>
+                <td>Última atividade registrada</td>
+              </tr>
+              <tr>
+                <td><strong>customer_segment</strong></td>
+                <td>VARCHAR(20)</td>
+                <td><span class="badge badge-source">Múltiplas</span></td>
+                <td>-</td>
+                <td><span class="badge badge-transform">CASE WHEN</span></td>
+                <td>Segmentação baseada em RFM</td>
+              </tr>
+              <tr>
+                <td><strong>lifetime_value</strong></td>
+                <td>DECIMAL(15,2)</td>
+                <td><span class="badge badge-source">Base Transações</span></td>
+                <td>valor_transacao</td>
+                <td><span class="badge badge-transform">PREDICTIVE</span></td>
+                <td>Modelo ML de previsão CLV</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Dicionário -->
+      <section id="dictionary" class="section" aria-labelledby="h-dict">
+        <h2 id="h-dict">📖 Dicionário de Dados</h2>
+        <div class="table-container" style="margin-top:12px;">
+          <table id="dictTable">
+            <thead>
+              <tr>
+                <th>Campo</th>
+                <th>Descrição</th>
+                <th>Tipo</th>
+                <th>Nullable</th>
+                <th>Exemplo</th>
+                <th>Validações</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>customer_id</strong></td>
+                <td>Identificador único do cliente</td>
+                <td>INTEGER</td>
+                <td>NO</td>
+                <td>12345</td>
+                <td>PK, > 0</td>
+              </tr>
+              <tr>
+                <td><strong>customer_name</strong></td>
+                <td>Nome completo do cliente</td>
+                <td>VARCHAR(100)</td>
+                <td>NO</td>
+                <td>JOÃO SILVA</td>
+                <td>NOT EMPTY</td>
+              </tr>
+              <tr>
+                <td><strong>email</strong></td>
+                <td>E-mail principal do cliente</td>
+                <td>VARCHAR(150)</td>
+                <td>YES</td>
+                <td>joao@email.com</td>
+                <td>REGEX EMAIL</td>
+              </tr>
+              <tr>
+                <td><strong>birth_date</strong></td>
+                <td>Data de nascimento</td>
+                <td>DATE</td>
+                <td>YES</td>
+                <td>1990-05-15</td>
+                <td>< TODAY</td>
+              </tr>
+              <tr>
+                <td><strong>total_revenue</strong></td>
+                <td>Receita total gerada pelo cliente</td>
+                <td>DECIMAL(15,2)</td>
+                <td>NO</td>
+                <td>15750.00</td>
+                <td>>= 0</td>
+              </tr>
+              <tr>
+                <td><strong>customer_segment</strong></td>
+                <td>Segmento do cliente baseado em comportamento</td>
+                <td>VARCHAR(20)</td>
+                <td>NO</td>
+                <td>GOLD</td>
+                <td>IN ('BRONZE','SILVER','GOLD','PLATINUM')</td>
+              </tr>
+              <tr>
+                <td><strong>is_active</strong></td>
+                <td>Indica se o cliente está ativo</td>
+                <td>BOOLEAN</td>
+                <td>NO</td>
+                <td>true</td>
+                <td>IN (true, false)</td>
+              </tr>
+              <tr>
+                <td><strong>created_at</strong></td>
+                <td>Data de criação do registro</td>
+                <td>TIMESTAMP</td>
+                <td>NO</td>
+                <td>2024-01-15 10:30:00</td>
+                <td>NOT NULL</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Transformações -->
+      <section id="transformations" class="section" aria-labelledby="h-trans">
+        <h2 id="h-trans">⚙️ Regras de Transformação</h2>
+        <h3 style="margin-top: 18px;">🔄 Processos ETL</h3>
+        <div style="background: var(--bg-1); padding: 18px; border-radius: 10px; margin-top: 10px;">
+          <h4>1. Limpeza de Dados</h4>
+          <ul style="margin-top: 8px; line-height: 1.8;">
+            <li>Remoção de duplicatas baseada em chave composta (customer_id + timestamp)</li>
+            <li>Tratamento de valores nulos com estratégias específicas por tipo de dado</li>
+            <li>Padronização de formatos de data (ISO 8601)</li>
+            <li>Normalização de strings (remoção de espaços extras, caracteres especiais)</li>
+          </ul>
+        </div>
+        <div style="background: var(--bg-1); padding: 18px; border-radius: 10px; margin-top: 12px;">
+          <h4>2. Enriquecimento</h4>
+          <ul style="margin-top: 8px; line-height: 1.8;">
+            <li>Geocodificação de endereços para coordenadas</li>
+            <li>Cálculo de idade baseado em data de nascimento</li>
+            <li>Derivação de faixas etárias e demográficas</li>
+            <li>Score de propensão usando modelo preditivo</li>
+          </ul>
+        </div>
+        <div style="background: var(--bg-1); padding: 18px; border-radius: 10px; margin-top: 12px;">
+          <h4>3. Agregações</h4>
+          <ul style="margin-top: 8px; line-height: 1.8;">
+            <li>Métricas de RFM (Recência, Frequência, Valor Monetário)</li>
+            <li>Cálculo de médias móveis de 30, 60 e 90 dias</li>
+            <li>Totalizadores por período (diário, semanal, mensal)</li>
+            <li>Percentis e quartis para análise de distribuição</li>
+          </ul>
+        </div>
+        <h3 style="margin-top: 18px;">📝 Código de Exemplo</h3>
+        <div style="background:#2d2d2d; color:#f8f8f2; padding: 18px; border-radius: 10px; margin-top: 10px; font-family: 'Courier New', monospace;">
+<pre style="margin:0; white-space:pre-wrap;">
+-- Transformação: Cálculo de Customer Lifetime Value
+WITH customer_metrics AS (
+    SELECT 
+        customer_id,
+        COUNT(DISTINCT transaction_id) as total_transactions,
+        SUM(transaction_value) as total_value,
+        DATEDIFF(day, MIN(transaction_date), MAX(transaction_date)) as customer_lifespan,
+        MAX(transaction_date) as last_transaction
+    FROM transactions
+    GROUP BY customer_id
+)
+SELECT 
+    c.customer_id,
+    c.customer_name,
+    cm.total_value as lifetime_value,
+    cm.total_transactions,
+    CASE 
+        WHEN cm.total_value &gt; 10000 THEN 'PLATINUM'
+        WHEN cm.total_value &gt; 5000 THEN 'GOLD'
+        WHEN cm.total_value &gt; 1000 THEN 'SILVER'
+        ELSE 'BRONZE'
+    END as customer_segment,
+    cm.last_transaction
+FROM customers c
+JOIN customer_metrics cm ON c.customer_id = cm.customer_id;
+</pre>
+        </div>
+      </section>
+
+      <!-- Qualidade -->
+      <section id="quality" class="section" aria-labelledby="h-quality">
+        <h2 id="h-quality">✅ Métricas de Qualidade</h2>
+        <div class="quality-metrics">
+          <div class="metric-card">
+            <div class="metric-value" data-kpi="completude">98.7%</div>
+            <div class="metric-label">Completude</div>
+            <div class="progress-bar"><div class="progress-fill" style="width:98.7%"></div></div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value" data-kpi="consistencia">99.2%</div>
+            <div class="metric-label">Consistência</div>
+            <div class="progress-bar"><div class="progress-fill" style="width:99.2%"></div></div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value" data-kpi="conformidade">99.9%</div>
+            <div class="metric-label">Conformidade</div>
+            <div class="progress-bar"><div class="progress-fill" style="width:99.9%"></div></div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value" data-kpi="tempestividade">97.3%</div>
+            <div class="metric-label">Tempestividade</div>
+            <div class="progress-bar"><div class="progress-fill" style="width:97.3%"></div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Timeline -->
+      <section id="timeline" class="section" aria-labelledby="h-timeline">
+        <h2 id="h-timeline">🕒 Timeline</h2>
+        <div class="timeline">
+          <div class="timeline-item">
+            <div class="timeline-content">
+              <h4>Ingestão v1</h4>
+              <p style="color:var(--text-2); margin-top:6px;">Primeira carga de clientes e transações concluída.</p>
+              <small>2025-08-10</small>
+            </div>
+            <div class="timeline-dot" aria-hidden></div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-content">
+              <h4>Regras RFM</h4>
+              <p style="color:var(--text-2); margin-top:6px;">Implementação das métricas de recência, frequência e valor.</p>
+              <small>2025-08-22</small>
+            </div>
+            <div class="timeline-dot" aria-hidden></div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-content">
+              <h4>Qualidade v2</h4>
+              <p style="color:var(--text-2); margin-top:6px;">Validações de conformidade e tempestividade adicionadas.</p>
+              <small>2025-09-02</small>
+            </div>
+            <div class="timeline-dot" aria-hidden></div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div id="modal" class="modal" aria-modal="true" role="dialog" aria-labelledby="modal-title" aria-hidden="true">
+    <div class="modal-content">
+      <span class="close" id="modal-close" aria-label="Fechar">&times;</span>
+      <h3 id="modal-title" style="margin-bottom:8px;">Detalhes</h3>
+      <div id="modal-body" style="color:var(--text-2);"></div>
+    </div>
+  </div>
+
+  <script>
+    // ---------- Navegação entre seções ----------
+    const navButtons = document.querySelectorAll('.nav-btn');
+    const sections = document.querySelectorAll('.section');
+
+    function showSection(id) {
+      sections.forEach(sec => sec.classList.toggle('active', sec.id === id));
+      navButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.target === id));
+      // Atualiza hash e persiste no localStorage
+      location.hash = id; localStorage.setItem('lineage.activeSection', id);
+    }
+
+    navButtons.forEach(btn => btn.addEventListener('click', () => showSection(btn.dataset.target)));
+
+    // Restaura seção ativa via hash ou localStorage
+    (function initSectionFromState(){
+      const state = location.hash?.replace('#','') || localStorage.getItem('lineage.activeSection') || 'overview';
+      if (document.getElementById(state)) showSection(state);
+    })();
+
+    // ---------- Filtro de tabela ----------
+    const searchInput = document.getElementById('search');
+    const lineageTable = document.getElementById('lineageTable');
+
+    function normalize(str){ return (str||'').toString().normalize('NFD').replace(/\p{Diacritic}/gu,'').toLowerCase(); }
+
+    function filterTable(q) {
+      const nq = normalize(q);
+      let visible = 0;
+      lineageTable.querySelectorAll('tbody tr').forEach(tr => {
+        const text = normalize(tr.innerText);
+        const match = text.includes(nq);
+        tr.style.display = match ? '' : 'none';
+        if (match) visible++;
+      });
+      // Guarda consulta
+      localStorage.setItem('lineage.filter', q);
+      return visible;
+    }
+
+    if (searchInput) {
+      searchInput.addEventListener('input', (e) => filterTable(e.target.value));
+      // restaura filtro
+      const cached = localStorage.getItem('lineage.filter') || '';
+      if (cached) { searchInput.value = cached; filterTable(cached); }
+    }
+
+    // ---------- Exportações ----------
+    function tableToJSON(table){
+      const rows = Array.from(table.querySelectorAll('tbody tr')).filter(r => r.style.display !== 'none');
+      const headers = Array.from(table.querySelectorAll('thead th')).map(th => th.textContent.trim());
+      return rows.map(r => Array.from(r.children).map(td => td.textContent.trim()).reduce((obj, val, i) => (obj[headers[i]] = val, obj), {}));
+    }
+
+    function download(fileName, content, mime='text/plain'){
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([content], {type: mime}));
+      a.download = fileName; a.click(); URL.revokeObjectURL(a.href);
+    }
+
+    document.getElementById('btn-export-json')?.addEventListener('click', () => {
+      const data = tableToJSON(lineageTable);
+      download('lineage-mapeamento.json', JSON.stringify(data, null, 2), 'application/json');
+    });
+
+    document.getElementById('btn-export-csv')?.addEventListener('click', () => {
+      const data = tableToJSON(lineageTable);
+      const headers = Object.keys(data[0] || {});
+      const csv = [headers.join(',')].concat(data.map(r => headers.map(h => '"' + String(r[h]||'').replace(/"/g,'""') + '"').join(','))).join("\n");
+      download('lineage-mapeamento.csv', csv, 'text/csv');
+    });
+
+    document.getElementById('btn-print')?.addEventListener('click', () => window.print());
+    document.getElementById('btn-reset')?.addEventListener('click', () => { searchInput.value=''; filterTable(''); });
+
+    // ---------- Modal de detalhes ----------
+    const modal = document.getElementById('modal');
+    const modalClose = document.getElementById('modal-close');
+    const modalTitle = document.getElementById('modal-title');
+    const modalBody = document.getElementById('modal-body');
+
+    const DETAILS = {
+      source1: {
+        title: 'Base Clientes (PostgreSQL)',
+        html: `<ul>
+          <li>Schema: <code>crm.public.customers</code></li>
+          <li>Chaves: <code>id_cliente</code> (PK)</li>
+          <li>Atualização: diária às 02:00 BRT</li>
+          <li>Linhas ~ 1.2M | 15 variáveis</li>
+        </ul>`
+      },
+      source2: {
+        title: 'Base Transações (MySQL)',
+        html: `<ul>
+          <li>Tabela: <code>sales.transactions</code></li>
+          <li>Chaves: <code>transaction_id</code> (PK), <code>customer_id</code> (FK)</li>
+          <li>Atualização: near-real-time (CDC)</li>
+          <li>Linhas ~ 18M | 28 variáveis</li>
+        </ul>`
+      },
+      source3: {
+        title: 'Base Produtos (API REST)',
+        html: `<ul>
+          <li>Endpoint: <code>/v1/products</code></li>
+          <li>Autenticação: OAuth2</li>
+          <li>Latência típica: 120–250ms</li>
+          <li>Cache: 24h</li>
+        </ul>`
+      },
+      source4: {
+        title: 'Base Campanhas (CSV)',
+        html: `<ul>
+          <li>Local: <code>s3://landing/campaigns/</code></li>
+          <li>Particionamento: <code>anomesdia</code></li>
+          <li>Validações: cabeçalho, delimitador, tipagem</li>
+          <li>18 variáveis</li>
+        </ul>`
+      },
+      source5: {
+        title: 'Logs de Sistema (MongoDB)',
+        html: `<ul>
+          <li>Coleção: <code>app.logs</code></li>
+          <li>TTL: 365 dias</li>
+          <li>Campos principais: <code>timestamp_acao, nivel, origem</code></li>
+          <li>44 variáveis</li>
+        </ul>`
+      },
+      transform: {
+        title: 'Camada de Transformação (Spark)',
+        html: `<ul>
+          <li>Jobs: 12 (batch + streaming)</li>
+          <li>Camadas: Bronze → Silver → Gold</li>
+          <li>Qualidade: schema enforcement + validações</li>
+          <li>Observabilidade: métricas e logs por job</li>
+        </ul>`
+      },
+      target: {
+        title: 'DW_ANALYTICS (Tabela Final)',
+        html: `<ul>
+          <li>Grão: 1 linha por cliente</li>
+          <li>PK: <code>customer_id</code></li>
+          <li>Linhas: ~ 950k | 87 variáveis</li>
+          <li>Consumo: Power BI / Data Science</li>
+        </ul>`
+      }
+    };
+
+    function showDetail(key){
+      const data = DETAILS[key]; if (!data) return;
+      modalTitle.textContent = data.title; modalBody.innerHTML = data.html;
+      modal.style.display = 'block'; modal.setAttribute('aria-hidden','false');
+    }
+
+    function closeModal(){ modal.style.display = 'none'; modal.setAttribute('aria-hidden','true'); }
+
+    document.querySelectorAll('[data-detail]').forEach(el => {
+      const key = el.getAttribute('data-detail');
+      const handler = () => showDetail(key);
+      el.addEventListener('click', handler);
+      el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handler(); } });
+    });
+
+    modalClose.addEventListener('click', closeModal);
+    window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+    modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+
+    // ---------- Pequena API para atualização em runtime ----------
+    window.LineageUI = {
+      setKPI: (idOrData, value) => {
+        if (typeof idOrData === 'string') {
+          const el = document.getElementById(idOrData); if (el) el.textContent = value;
+        } else if (typeof idOrData === 'object') {
+          Object.entries(idOrData).forEach(([id, val]) => {
+            const el = document.getElementById(id); if (el) el.textContent = val;
+          });
+        }
+      },
+      pushRow: (row) => {
+        // row: [varFinal, tipo, origem, varOrig, transf, regra]
+        const tr = document.createElement('tr');
+        row.forEach((cell, i) => {
+          const td = document.createElement('td');
+          if (i === 2) { // Origem com badge
+            const span = document.createElement('span'); span.className = 'badge badge-source'; span.textContent = cell; td.appendChild(span);
+          } else if (i === 4) {
+            const span = document.createElement('span'); span.className = 'badge badge-transform'; span.textContent = cell; td.appendChild(span);
+          } else {
+            td.textContent = cell;
+          }
+          tr.appendChild(td);
+        });
+        lineageTable.querySelector('tbody').appendChild(tr);
+      }
+    };
+  </script>
+</body>
+</html>
